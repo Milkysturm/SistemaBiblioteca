@@ -9,6 +9,8 @@ import javax.swing.border.Border;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Base comun de los paneles de gestion (libros, estudiantes, etc.).
@@ -23,6 +25,9 @@ public abstract class PanelCrud extends JPanel {
 
     /** Version de la clase, requerida por ser serializable. */
     private static final long serialVersionUID = 1L;
+
+    /** Formato de fecha que se muestra al usuario. */
+    protected static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     /** Margen que usan todos los paneles. */
     protected static final Border MARGEN = BorderFactory.createEmptyBorder(10, 12, 10, 12);
@@ -120,6 +125,14 @@ public abstract class PanelCrud extends JPanel {
         tabla.clearSelection();
         tabla.getSelectionModel().setAnchorSelectionIndex(-1);
         tabla.getSelectionModel().setLeadSelectionIndex(-1);
+    }
+
+    /**
+     * @param dia fecha a mostrar, puede ser null
+     * @return la fecha como dd-MM-yyyy, o "" si es null
+     */
+    protected static String fecha(LocalDate dia) {
+        return (dia == null) ? "" : dia.format(FORMATO_FECHA);
     }
 
     /**

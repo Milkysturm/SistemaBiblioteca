@@ -50,8 +50,10 @@ public final class VentanaPrincipal extends JFrame {
 
         if (usuario.esBibliotecario()) {
             pestanas.addTab("Libros", new PanelLibros(controlador, true));
+            pestanas.addTab("Categorias", new PanelCategorias(controlador));
             pestanas.addTab("Estudiantes", new PanelEstudiantes(controlador));
             pestanas.addTab("Prestamos", new PanelPrestamos(controlador, null));
+            pestanas.addTab("Reportes", new PanelReportes(controlador));
         } else {
             pestanas.addTab("Catalogo", new PanelLibros(controlador, false));
             agregarMisPrestamos(usuario);

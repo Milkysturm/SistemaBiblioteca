@@ -283,7 +283,7 @@ public final class PanelLibros extends PanelCrud {
             return;
         }
         try {
-            if (controlador.actualizarLibro(libro)) {
+            if (controlador.actualizarLibro(libro, seleccionado.getStock())) {
                 informar("Libro " + libro.getId() + " actualizado.");
             } else {
                 advertir("El libro ya no existe en la base de datos.");

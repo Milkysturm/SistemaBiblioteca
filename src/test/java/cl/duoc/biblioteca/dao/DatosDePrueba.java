@@ -42,6 +42,7 @@ public final class DatosDePrueba {
     public static boolean hayBaseDeDatos() {
         try {
             DatabaseConnection.comprobarConexion();
+            new PrestamoDAO().asegurarColumnaFechaEntrega();
             return true;
         } catch (SQLException e) {
             return false;

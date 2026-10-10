@@ -171,4 +171,20 @@ class ServicioPrestamosTest {
         assertThrows(IllegalStateException.class, () -> servicio.registrarPrestamo(idEstudiante, libro.getId()));
         assertEquals(STOCK_INICIAL - 1, libroDAO.buscarPorId(libro.getId()).getStock());
     }
+
+    @Test
+    @DisplayName("Editar un libro no pisa un prestamo hecho mientras se editaba")
+    void editarLibroNoPisaUnPrestamo() throws SQLException {
+        int stockLeido = libroDAO.buscarPorId(libro.getId()).getStock();   // el formulario muestra 3
+        servicio.registrarPrestamo(estudiantes.get(0).getId(), libro.getId());   // otro hilo presta: queda 2
+
+        libro.setTitulo("Titulo editado");
+        libro.setStock(stockLeido);
+        assertThrows(IllegalStateException.class, () -> servicio.actualizarLibro(libro, stockLeido));
+        assertEquals(STOCK_INICIAL - 1, libroDAO.buscarPorId(libro.getId()).getStock());
+
+        libro.setStock(STOCK_INICIAL - 1);
+        assertTrue(servicio.actualizarLibro(libro, STOCK_INICIAL - 1));
+        assertEquals("Titulo editado", libroDAO.buscarPorId(libro.getId()).getTitulo());
+    }
 }

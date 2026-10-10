@@ -16,15 +16,11 @@ import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.SwingWorker;
-import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
 import java.awt.FlowLayout;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -51,9 +47,6 @@ public final class PanelPrestamos extends PanelCrud {
      * vea el avance y que la ventana sigue respondiendo mientras el hilo trabaja.
      */
     private static final long PAUSA_DEMOSTRACION_MS = 700;
-
-    /** Formato de fecha que se muestra al usuario. */
-    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     /** Columna de la tabla con el id del prestamo. */
     private static final int COL_ID = 0;
@@ -114,7 +107,7 @@ public final class PanelPrestamos extends PanelCrud {
         this.estudianteFijo = estudianteFijo;
         setBorder(MARGEN);
         definirAnchos(tabla, 40, 150, 230, 85, 85, 85, 190);
-        tabla.getColumnModel().getColumn(COL_ESTADO).setCellRenderer(new RenderEstado());
+        tabla.getColumnModel().getColumn(COL_ESTADO).setCellRenderer(new RenderEstadoPrestamo());
 
         botonPrestar.setText(estudianteFijo == null ? "Registrar prestamo" : "Pedir prestado");
         botonPrestar.addActionListener(e -> prestar());
@@ -384,46 +377,5 @@ public final class PanelPrestamos extends PanelCrud {
      */
     private static void pausa() throws InterruptedException {
         Thread.sleep(PAUSA_DEMOSTRACION_MS);
-    }
-
-    /**
-     * @param dia fecha a mostrar, puede ser null
-     * @return la fecha como dd-MM-yyyy, o "" si es null
-     */
-    private static String fecha(LocalDate dia) {
-        return (dia == null) ? "" : dia.format(FORMATO_FECHA);
-    }
-
-    /**
-     * Pinta en rojo los prestamos atrasados y en naranjo los devueltos con atraso.
-     */
-    private static final class RenderEstado extends DefaultTableCellRenderer {
-
-        /** Version de la clase, requerida por ser serializable. */
-        private static final long serialVersionUID = 1L;
-
-        /** Color de los prestamos atrasados. */
-        private static final Color ROJO = new Color(190, 30, 30);
-
-        /** Color de los devueltos con atraso. */
-        private static final Color NARANJO = new Color(200, 110, 0);
-
-        @Override
-        public Component getTableCellRendererComponent(JTable tabla, Object valor, boolean seleccionada,
-                                                       boolean foco, int fila, int columna) {
-            Component celda = super.getTableCellRendererComponent(tabla, valor, seleccionada, foco, fila, columna);
-            String texto = String.valueOf(valor);
-            if (seleccionada) {
-                return celda;
-            }
-            if (texto.startsWith("Atrasado")) {
-                celda.setForeground(ROJO);
-            } else if (texto.contains("atraso")) {
-                celda.setForeground(NARANJO);
-            } else {
-                celda.setForeground(tabla.getForeground());
-            }
-            return celda;
-        }
     }
 }

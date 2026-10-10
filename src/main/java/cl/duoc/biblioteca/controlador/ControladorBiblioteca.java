@@ -8,6 +8,7 @@ import cl.duoc.biblioteca.dao.UsuarioDAO;
 import cl.duoc.biblioteca.modelo.Categoria;
 import cl.duoc.biblioteca.modelo.Estudiante;
 import cl.duoc.biblioteca.modelo.Libro;
+import cl.duoc.biblioteca.modelo.LibroMasPrestado;
 import cl.duoc.biblioteca.modelo.Prestamo;
 import cl.duoc.biblioteca.modelo.Rol;
 import cl.duoc.biblioteca.modelo.Usuario;
@@ -50,8 +51,18 @@ public class ControladorBiblioteca {
     private final ServicioPrestamos servicioPrestamos = new ServicioPrestamos();
 
     // ------------------------------------------------------------------
-    // Autenticacion
+    // Preparacion y autenticacion
     // ------------------------------------------------------------------
+
+    /**
+     * Deja la base lista para usar: agrega la columna fecha_entrega si falta.
+     * Se llama una vez al iniciar la aplicacion.
+     *
+     * @throws SQLException si falla la modificacion
+     */
+    public void prepararBaseDeDatos() throws SQLException {
+        prestamoDAO.asegurarColumnaFechaEntrega();
+    }
 
     /**
      * Valida el inicio de sesion contra la base de datos.
@@ -89,6 +100,73 @@ public class ControladorBiblioteca {
     }
 
     /**
+     * Registra una categoria nueva.
+     *
+     * @param categoria categoria a guardar
+     * @throws SQLException          si falla la insercion
+     * @throws IllegalStateException si ya existe una categoria con ese nombre
+     */
+    public void crearCategoria(Categoria categoria) throws SQLException {
+        validarNombreCategoriaLibre(categoria);
+        categoriaDAO.insertar(categoria);
+    }
+
+    /**
+     * Cambia el nombre de una categoria.
+     *
+     * @param categoria categoria con el nombre nuevo
+     * @return true si existia y se actualizo
+     * @throws SQLException          si falla la actualizacion
+     * @throws IllegalStateException si otra categoria ya tiene ese nombre
+     */
+    public boolean actualizarCategoria(Categoria categoria) throws SQLException {
+        validarNombreCategoriaLibre(categoria);
+        return categoriaDAO.actualizar(categoria);
+    }
+
+    /**
+     * Elimina una categoria, siempre que no tenga libros.
+     *
+     * @param idCategoria categoria a eliminar
+     * @return true si se elimino
+     * @throws SQLException          si falla la eliminacion
+     * @throws IllegalStateException si la categoria tiene libros
+     */
+    public boolean eliminarCategoria(int idCategoria) throws SQLException {
+        int libros = libroDAO.contarPorCategoria(idCategoria);
+        if (libros > 0) {
+            throw new IllegalStateException("Esta categoria tiene " + libros
+                    + " libro(s).\nCambia esos libros de categoria antes de eliminarla.");
+        }
+        return categoriaDAO.eliminar(idCategoria);
+    }
+
+    /**
+     * @param idCategoria categoria a consultar
+     * @return cantidad de libros de la categoria
+     * @throws SQLException si falla la consulta
+     */
+    public int contarLibrosDeCategoria(int idCategoria) throws SQLException {
+        return libroDAO.contarPorCategoria(idCategoria);
+    }
+
+    /**
+     * Comprueba que ninguna otra categoria tenga el mismo nombre (sin importar mayusculas).
+     *
+     * @param categoria categoria que se quiere guardar
+     * @throws SQLException          si falla la consulta
+     * @throws IllegalStateException si el nombre ya esta en uso
+     */
+    private void validarNombreCategoriaLibre(Categoria categoria) throws SQLException {
+        for (Categoria existente : categoriaDAO.listar()) {
+            if (existente.getId() != categoria.getId()
+                    && existente.getNombre().equalsIgnoreCase(categoria.getNombre())) {
+                throw new IllegalStateException("Ya existe la categoria \"" + existente.getNombre() + "\".");
+            }
+        }
+    }
+
+    /**
      * @return todos los libros, ordenados por titulo
      * @throws SQLException si falla la consulta
      */
@@ -120,16 +198,18 @@ public class ControladorBiblioteca {
     }
 
     /**
-     * Guarda los cambios de un libro.
+     * Guarda los cambios de un libro. Como puede cambiar el stock, pasa por el
+     * metodo synchronized del servicio de prestamos.
      *
-     * @param libro libro con los datos nuevos
+     * @param libro      libro con los datos nuevos
+     * @param stockLeido stock que tenia el libro cuando se cargo en el formulario
      * @return true si el libro existia y se actualizo
      * @throws SQLException          si falla la actualizacion
-     * @throws IllegalStateException si otro libro ya tiene el mismo ISBN
+     * @throws IllegalStateException si otro libro tiene el mismo ISBN o el stock cambio mientras se editaba
      */
-    public boolean actualizarLibro(Libro libro) throws SQLException {
+    public boolean actualizarLibro(Libro libro, int stockLeido) throws SQLException {
         validarIsbnLibre(libro);
-        return libroDAO.actualizar(libro);
+        return servicioPrestamos.actualizarLibro(libro, stockLeido);
     }
 
     /**
@@ -267,11 +347,15 @@ public class ControladorBiblioteca {
         if (estudiante == null) {
             return false;
         }
+        if (!estudianteDAO.eliminar(idEstudiante)) {
+            return false;
+        }
+        // La cuenta se borra despues, para no dejar un estudiante sin cuenta si el borrado falla
         Usuario cuenta = cuentaDeEstudiante(estudiante.getRut());
         if (cuenta != null) {
             usuarioDAO.eliminar(cuenta.getId());
         }
-        return estudianteDAO.eliminar(idEstudiante);
+        return true;
     }
 
     /**
@@ -393,5 +477,26 @@ public class ControladorBiblioteca {
      */
     public Prestamo registrarDevolucion(int idPrestamo) throws SQLException {
         return servicioPrestamos.registrarDevolucion(idPrestamo);
+    }
+
+    // ------------------------------------------------------------------
+    // Reportes
+    // ------------------------------------------------------------------
+
+    /**
+     * @param limite cantidad maxima de libros
+     * @return los libros mas prestados, de mayor a menor
+     * @throws SQLException si falla la consulta
+     */
+    public List<LibroMasPrestado> librosMasPrestados(int limite) throws SQLException {
+        return prestamoDAO.librosMasPrestados(limite);
+    }
+
+    /**
+     * @return prestamos que se devolvieron con atraso, del mas reciente al mas antiguo
+     * @throws SQLException si falla la consulta
+     */
+    public List<Prestamo> devolucionesConAtraso() throws SQLException {
+        return prestamoDAO.listarDevueltosConAtraso();
     }
 }

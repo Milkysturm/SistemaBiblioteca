@@ -113,4 +113,18 @@ class ControladorBibliotecaTest {
 
         assertThrows(IllegalStateException.class, () -> controlador.crearEstudiante(repetido, ""));
     }
+
+    @Test
+    @DisplayName("No se puede eliminar una categoria que tiene libros")
+    void categoriaConLibrosNoSeElimina() {
+        assertThrows(IllegalStateException.class,
+                () -> controlador.eliminarCategoria(DatosDePrueba.ID_CATEGORIA_EJEMPLO));
+    }
+
+    @Test
+    @DisplayName("No se puede crear una categoria con un nombre que ya existe")
+    void categoriaRepetidaSeRechaza() {
+        assertThrows(IllegalStateException.class,
+                () -> controlador.crearCategoria(new Categoria(0, "historia")));
+    }
 }

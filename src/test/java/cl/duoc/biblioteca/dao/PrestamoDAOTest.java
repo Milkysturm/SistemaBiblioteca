@@ -3,6 +3,7 @@ package cl.duoc.biblioteca.dao;
 import cl.duoc.biblioteca.modelo.Categoria;
 import cl.duoc.biblioteca.modelo.Estudiante;
 import cl.duoc.biblioteca.modelo.Libro;
+import cl.duoc.biblioteca.modelo.LibroMasPrestado;
 import cl.duoc.biblioteca.modelo.Prestamo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -128,5 +129,21 @@ class PrestamoDAOTest {
 
         assertEquals(1, dao.contarPorLibro(libro.getId()));
         assertEquals(1, dao.contarPorEstudiante(estudiante.getId()));
+    }
+
+    @Test
+    @DisplayName("librosMasPrestados cuenta los prestamos de cada libro")
+    void librosMasPrestadosCuentaLosPrestamos() throws SQLException {
+        dao.insertar(new Prestamo(estudiante.getId(), libro.getId()));
+        dao.insertar(new Prestamo(estudiante.getId(), libro.getId()));
+
+        boolean encontrado = false;
+        for (LibroMasPrestado fila : dao.librosMasPrestados(100)) {
+            if (fila.getTitulo().equals(libro.getTitulo())) {
+                assertEquals(2, fila.getVecesPrestado());
+                encontrado = true;
+            }
+        }
+        assertTrue(encontrado);
     }
 }

@@ -1,5 +1,6 @@
 package cl.duoc.biblioteca.dao;
 
+import cl.duoc.biblioteca.modelo.LibroMasPrestado;
 import cl.duoc.biblioteca.modelo.Prestamo;
 
 import java.sql.Date;
@@ -28,6 +29,28 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
             + "FROM prestamos p "
             + "JOIN estudiantes e ON p.id_estudiante = e.id "
             + "JOIN libros l ON p.id_libro = l.id ";
+
+    /**
+     * Agrega la columna fecha_entrega si la base todavia no la tiene (script 03).
+     * Asi la aplicacion funciona aunque solo se hayan ejecutado los dos scripts de Duoc.
+     *
+     * @return true si tuvo que agregar la columna
+     * @throws SQLException si falla la consulta o la modificacion
+     */
+    public boolean asegurarColumnaFechaEntrega() throws SQLException {
+        String consulta = "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'prestamos' AND COLUMN_NAME = 'fecha_entrega'";
+        try (PreparedStatement ps = getConexion().prepareStatement(consulta);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next() && rs.getInt(1) > 0) {
+                return false;
+            }
+        }
+        try (Statement sentencia = getConexion().createStatement()) {
+            sentencia.executeUpdate("ALTER TABLE prestamos ADD COLUMN fecha_entrega DATE NULL AFTER fecha_devolucion");
+        }
+        return true;
+    }
 
     @Override
     public boolean insertar(Prestamo prestamo) throws SQLException {
@@ -65,6 +88,15 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
     }
 
     /**
+     * @return prestamos devueltos despues de su vencimiento (constancia de atrasos)
+     * @throws SQLException si falla la consulta
+     */
+    public List<Prestamo> listarDevueltosConAtraso() throws SQLException {
+        return consultar(SELECT_BASE + "WHERE p.devuelto = TRUE AND p.fecha_entrega > p.fecha_devolucion "
+                + "ORDER BY p.fecha_entrega DESC", 0);
+    }
+
+    /**
      * @param idEstudiante estudiante a consultar
      * @return historial de prestamos del estudiante, del mas reciente al mas antiguo
      * @throws SQLException si falla la consulta
@@ -89,6 +121,32 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
             ps.setInt(2, idPrestamo);
             return ps.executeUpdate() > 0;
         }
+    }
+
+    /**
+     * Reporte: libros ordenados por cantidad de prestamos, de mayor a menor.
+     *
+     * @param limite cantidad maxima de libros a devolver
+     * @return los libros mas prestados con su cantidad de prestamos
+     * @throws SQLException si falla la consulta
+     */
+    public List<LibroMasPrestado> librosMasPrestados(int limite) throws SQLException {
+        String sql = "SELECT l.titulo, l.autor, COUNT(p.id) AS veces "
+                + "FROM prestamos p JOIN libros l ON p.id_libro = l.id "
+                + "GROUP BY l.id, l.titulo, l.autor "
+                + "ORDER BY veces DESC, l.titulo "
+                + "LIMIT ?";
+        List<LibroMasPrestado> lista = new ArrayList<>();
+        try (PreparedStatement ps = getConexion().prepareStatement(sql)) {
+            ps.setInt(1, limite);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new LibroMasPrestado(rs.getString("titulo"), rs.getString("autor"),
+                            rs.getInt("veces")));
+                }
+            }
+        }
+        return lista;
     }
 
     /**

@@ -30,28 +30,32 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(new Thread(DatabaseConnection::cerrar));
 
         SwingUtilities.invokeLater(() -> {
-            if (hayBaseDeDatos()) {
-                new VentanaLogin(new ControladorBiblioteca());
+            ControladorBiblioteca controlador = new ControladorBiblioteca();
+            if (hayBaseDeDatos(controlador)) {
+                new VentanaLogin(controlador);
             }
         });
     }
 
     /**
-     * Comprueba la conexion y avisa si no hay base de datos disponible.
+     * Comprueba la conexion, prepara la base y avisa si no hay base de datos disponible.
      *
+     * @param controlador controlador del sistema
      * @return true si se puede trabajar
      */
-    private static boolean hayBaseDeDatos() {
+    private static boolean hayBaseDeDatos(ControladorBiblioteca controlador) {
         try {
             DatabaseConnection.comprobarConexion();
+            controlador.prepararBaseDeDatos();
             return true;
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(null,
                     "No se pudo conectar con la base de datos.\n\n"
                             + "Direccion: " + DatabaseConnection.getUrl() + "\n"
                             + "Detalle: " + e.getMessage() + "\n\n"
-                            + "Revisa que MySQL este encendido y que los datos de\n"
-                            + "src/main/resources/db.properties sean los correctos.",
+                            + "Revisa que MySQL este encendido, que existan las tablas de la carpeta sql\n"
+                            + "y que los datos de db.properties sean los correctos (en src/main/resources\n"
+                            + "o en la misma carpeta desde donde se ejecuta el programa).",
                     "Sin conexion a la base de datos", JOptionPane.ERROR_MESSAGE);
             return false;
         }

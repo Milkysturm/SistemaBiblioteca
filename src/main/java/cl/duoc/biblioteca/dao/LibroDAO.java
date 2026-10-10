@@ -115,6 +115,41 @@ public class LibroDAO extends BaseDAO implements CrudDAO<Libro> {
     }
 
     /**
+     * Actualiza el libro solo si su stock sigue siendo el que se leyo al editarlo.
+     * Asi no se pisa un prestamo o devolucion que haya ocurrido mientras tanto.
+     *
+     * @param libro         libro con los datos nuevos
+     * @param stockEsperado stock que tenia el libro cuando se cargo en el formulario
+     * @return true si se actualizo; false si el libro no existe o su stock cambio
+     * @throws SQLException si falla la actualizacion
+     */
+    public boolean actualizarSiStockNoCambio(Libro libro, int stockEsperado) throws SQLException {
+        String sql = "UPDATE libros SET titulo = ?, autor = ?, isbn = ?, editorial = ?, "
+                + "stock = ?, id_categoria = ? WHERE id = ? AND stock = ?";
+        try (PreparedStatement ps = getConexion().prepareStatement(sql)) {
+            llenarParametros(ps, libro);
+            ps.setInt(7, libro.getId());
+            ps.setInt(8, stockEsperado);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * @param idCategoria categoria a consultar
+     * @return cantidad de libros que pertenecen a la categoria
+     * @throws SQLException si falla la consulta
+     */
+    public int contarPorCategoria(int idCategoria) throws SQLException {
+        try (PreparedStatement ps = getConexion().prepareStatement(
+                "SELECT COUNT(*) FROM libros WHERE id_categoria = ?")) {
+            ps.setInt(1, idCategoria);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /**
      * Suma unidades al stock, o las resta si el cambio es negativo.
      *
      * La condicion "stock + ? >= 0" impide que el stock quede negativo.

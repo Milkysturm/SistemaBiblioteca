@@ -2,6 +2,8 @@ package cl.duoc.biblioteca.conexion;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -14,12 +16,15 @@ import java.util.Properties;
  * Los datos de acceso se leen de db.properties, asi la contrasena no queda
  * escrita en el codigo ni se sube al repositorio.
  *
+ * El archivo se busca primero en la carpeta desde donde se ejecuta el programa
+ * (util para el .jar en otro computador) y despues dentro del proyecto.
+ *
  * @author Olga Rivas
  * @version 1.0
  */
 public final class DatabaseConnection {
 
-    /** Archivo con los datos de conexion, ubicado en src/main/resources. */
+    /** Archivo con los datos de conexion. */
     private static final String ARCHIVO = "db.properties";
 
     /** Direccion de la base si no hay archivo de configuracion. */
@@ -65,6 +70,7 @@ public final class DatabaseConnection {
      */
     public static synchronized DatabaseConnection getInstance() throws SQLException {
         if (instancia == null || !instancia.conexion.isValid(SEGUNDOS_VALIDACION)) {
+            cerrar();   // si habia una conexion caida, se libera antes de abrir otra
             instancia = new DatabaseConnection();
         }
         return instancia;
@@ -109,13 +115,17 @@ public final class DatabaseConnection {
     }
 
     /**
-     * Lee db.properties desde el classpath.
+     * Lee db.properties: primero el de la carpeta actual y, si no existe, el que
+     * va dentro del proyecto (src/main/resources).
      *
-     * @return datos de conexion, vacios si no existe el archivo
+     * @return datos de conexion, vacios si no hay archivo
      */
     private static Properties leerConfiguracion() {
         Properties datos = new Properties();
-        try (InputStream entrada = DatabaseConnection.class.getClassLoader().getResourceAsStream(ARCHIVO)) {
+        Path externo = Path.of(ARCHIVO);
+        try (InputStream entrada = Files.isReadable(externo)
+                ? Files.newInputStream(externo)
+                : DatabaseConnection.class.getClassLoader().getResourceAsStream(ARCHIVO)) {
             if (entrada != null) {
                 datos.load(entrada);
             }

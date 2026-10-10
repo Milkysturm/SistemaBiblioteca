@@ -12,7 +12,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 
 /**
- * Operaciones de prestamo y devolucion, que son las que modifican el stock.
+ * Operaciones que modifican el stock: prestamo, devolucion y edicion de un libro.
  *
  * Sus metodos son synchronized: si varios hilos piden prestado el mismo libro al
  * mismo tiempo, entran de a uno. Asi la revision del stock, el descuento y el
@@ -110,6 +110,30 @@ public class ServicioPrestamos {
         prestamo.setDevuelto(true);
         prestamo.setFechaEntrega(hoy);
         return prestamo;
+    }
+
+    /**
+     * Guarda los cambios de un libro editado en el formulario, incluido su stock.
+     *
+     * Es synchronized como el prestamo y la devolucion, y solo guarda si el stock
+     * no cambio desde que se cargo el libro: si alguien presto o devolvio un
+     * ejemplar mientras tanto, se avisa en vez de pisar ese cambio.
+     *
+     * @param libro         libro con los datos nuevos
+     * @param stockEsperado stock que tenia el libro cuando se cargo en el formulario
+     * @return true si se guardo; false si el libro ya no existe
+     * @throws SQLException          si falla la actualizacion
+     * @throws IllegalStateException si el stock cambio mientras se editaba
+     */
+    public synchronized boolean actualizarLibro(Libro libro, int stockEsperado) throws SQLException {
+        if (libroDAO.actualizarSiStockNoCambio(libro, stockEsperado)) {
+            return true;
+        }
+        if (libroDAO.buscarPorId(libro.getId()) == null) {
+            return false;
+        }
+        throw new IllegalStateException("El stock de este libro cambio mientras lo editabas "
+                + "(se presto o se devolvio un ejemplar).\nVuelve a seleccionarlo en la tabla y repite el cambio.");
     }
 
     /**
