@@ -32,6 +32,9 @@ public class Prestamo {
     /** Indica si el libro ya se devolvio. */
     private boolean devuelto;
 
+    /** Dia en que el libro se devolvio de verdad, o null si aun no se devuelve. */
+    private LocalDate fechaEntrega;
+
     /** Nombre del estudiante, solo para mostrar en tablas. */
     private String nombreEstudiante;
 
@@ -96,10 +99,28 @@ public class Prestamo {
     }
 
     /**
-     * @return dias de atraso, o 0 si no esta atrasado
+     * Dias de atraso: si sigue prestado, hasta hoy; si ya se devolvio, hasta el
+     * dia de entrega.
+     *
+     * @return dias de atraso, o 0 si no hubo atraso o no se conoce la fecha de entrega
      */
     public long getDiasAtraso() {
-        return estaAtrasado() ? ChronoUnit.DAYS.between(fechaDevolucion, LocalDate.now()) : 0;
+        LocalDate hasta = devuelto ? fechaEntrega : LocalDate.now();
+        if (hasta == null || !hasta.isAfter(fechaDevolucion)) {
+            return 0;
+        }
+        return ChronoUnit.DAYS.between(fechaDevolucion, hasta);
+    }
+
+    /**
+     * @return estado del prestamo en palabras, para mostrar en tablas y reportes
+     */
+    public String getEstado() {
+        long dias = getDiasAtraso();
+        if (devuelto) {
+            return (dias > 0) ? "Devuelto con " + dias + " dia(s) de atraso" : "Devuelto";
+        }
+        return (dias > 0) ? "Atrasado " + dias + " dia(s)" : "En prestamo";
     }
 
     public int getId() {
@@ -148,6 +169,14 @@ public class Prestamo {
 
     public void setDevuelto(boolean devuelto) {
         this.devuelto = devuelto;
+    }
+
+    public LocalDate getFechaEntrega() {
+        return fechaEntrega;
+    }
+
+    public void setFechaEntrega(LocalDate fechaEntrega) {
+        this.fechaEntrega = fechaEntrega;
     }
 
     public String getNombreEstudiante() {

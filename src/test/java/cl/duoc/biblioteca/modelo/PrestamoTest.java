@@ -64,4 +64,30 @@ class PrestamoTest {
 
         assertFalse(prestamo.estaAtrasado());
     }
+
+    @Test
+    @DisplayName("Si se devolvio 4 dias despues del vencimiento, queda con 4 dias de atraso")
+    void devueltoTardeConservaElAtraso() {
+        LocalDate hoy = LocalDate.now();
+        Prestamo prestamo = new Prestamo(1, 1, 1, hoy.minusDays(20), hoy.minusDays(13), true);
+        prestamo.setFechaEntrega(hoy.minusDays(9));
+
+        assertFalse(prestamo.estaAtrasado());
+        assertEquals(4, prestamo.getDiasAtraso());
+        assertEquals("Devuelto con 4 dia(s) de atraso", prestamo.getEstado());
+    }
+
+    @Test
+    @DisplayName("getEstado describe cada situacion del prestamo")
+    void getEstadoDescribeCadaCaso() {
+        LocalDate hoy = LocalDate.now();
+
+        assertEquals("En prestamo", new Prestamo(1, 1).getEstado());
+        assertEquals("Atrasado 2 dia(s)",
+                new Prestamo(1, 1, 1, hoy.minusDays(9), hoy.minusDays(2), false).getEstado());
+
+        Prestamo aTiempo = new Prestamo(1, 1, 1, hoy.minusDays(5), hoy.plusDays(2), true);
+        aTiempo.setFechaEntrega(hoy);
+        assertEquals("Devuelto", aTiempo.getEstado());
+    }
 }

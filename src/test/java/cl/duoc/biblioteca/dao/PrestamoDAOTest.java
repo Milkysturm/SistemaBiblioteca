@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -78,14 +79,32 @@ class PrestamoDAOTest {
     }
 
     @Test
-    @DisplayName("marcarDevuelto cierra el prestamo una sola vez")
+    @DisplayName("marcarDevuelto cierra el prestamo una sola vez y guarda la fecha de entrega")
     void marcarDevueltoSoloUnaVez() throws SQLException {
         Prestamo prestamo = new Prestamo(estudiante.getId(), libro.getId());
         dao.insertar(prestamo);
 
-        assertTrue(dao.marcarDevuelto(prestamo.getId()));
-        assertFalse(dao.marcarDevuelto(prestamo.getId()));
-        assertTrue(dao.buscarPorId(prestamo.getId()).isDevuelto());
+        assertTrue(dao.marcarDevuelto(prestamo.getId(), LocalDate.now()));
+        assertFalse(dao.marcarDevuelto(prestamo.getId(), LocalDate.now()));
+
+        Prestamo leido = dao.buscarPorId(prestamo.getId());
+        assertTrue(leido.isDevuelto());
+        assertEquals(LocalDate.now(), leido.getFechaEntrega());
+    }
+
+    @Test
+    @DisplayName("Un prestamo devuelto tarde queda registrado con sus dias de atraso")
+    void devolucionTardiaQuedaRegistrada() throws SQLException {
+        LocalDate hace20 = LocalDate.now().minusDays(20);
+        Prestamo prestamo = new Prestamo(0, estudiante.getId(), libro.getId(), hace20,
+                Prestamo.calcularVencimiento(hace20), false);
+        dao.insertar(prestamo);
+
+        dao.marcarDevuelto(prestamo.getId(), LocalDate.now());
+
+        Prestamo leido = dao.buscarPorId(prestamo.getId());
+        assertEquals(13, leido.getDiasAtraso());
+        assertEquals("Devuelto con 13 dia(s) de atraso", leido.getEstado());
     }
 
     @Test
@@ -96,7 +115,7 @@ class PrestamoDAOTest {
         int id = prestamo.getId();
 
         assertTrue(dao.listarActivos().stream().anyMatch(p -> p.getId() == id));
-        dao.marcarDevuelto(id);
+        dao.marcarDevuelto(id, LocalDate.now());
         assertFalse(dao.listarActivos().stream().anyMatch(p -> p.getId() == id));
     }
 

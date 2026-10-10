@@ -8,6 +8,7 @@ import cl.duoc.biblioteca.dao.UsuarioDAO;
 import cl.duoc.biblioteca.modelo.Categoria;
 import cl.duoc.biblioteca.modelo.Estudiante;
 import cl.duoc.biblioteca.modelo.Libro;
+import cl.duoc.biblioteca.modelo.Prestamo;
 import cl.duoc.biblioteca.modelo.Rol;
 import cl.duoc.biblioteca.modelo.Usuario;
 
@@ -41,6 +42,12 @@ public class ControladorBiblioteca {
 
     /** Acceso a la tabla prestamos. */
     private final PrestamoDAO prestamoDAO = new PrestamoDAO();
+
+    /**
+     * Prestamos y devoluciones. Es una sola instancia para toda la aplicacion, asi
+     * sus metodos synchronized coordinan a todos los hilos que modifican el stock.
+     */
+    private final ServicioPrestamos servicioPrestamos = new ServicioPrestamos();
 
     // ------------------------------------------------------------------
     // Autenticacion
@@ -322,5 +329,69 @@ public class ControladorBiblioteca {
     private Usuario cuentaPara(Estudiante estudiante, String contrasena) {
         return new Usuario(0, estudiante.getNombre(), estudiante.getRut(),
                 estudiante.getCorreo(), contrasena, Rol.ESTUDIANTE);
+    }
+
+    // ------------------------------------------------------------------
+    // Prestamos y devoluciones
+    // ------------------------------------------------------------------
+
+    /**
+     * @return libros con al menos un ejemplar disponible
+     * @throws SQLException si falla la consulta
+     */
+    public List<Libro> listarLibrosDisponibles() throws SQLException {
+        List<Libro> disponibles = libroDAO.listar();
+        disponibles.removeIf(libro -> !libro.hayStock());
+        return disponibles;
+    }
+
+    /**
+     * @return prestamos aun no devueltos (libros actualmente en prestamo)
+     * @throws SQLException si falla la consulta
+     */
+    public List<Prestamo> listarPrestamosActivos() throws SQLException {
+        return prestamoDAO.listarActivos();
+    }
+
+    /**
+     * @return todos los prestamos, del mas reciente al mas antiguo
+     * @throws SQLException si falla la consulta
+     */
+    public List<Prestamo> listarPrestamos() throws SQLException {
+        return prestamoDAO.listar();
+    }
+
+    /**
+     * @param idEstudiante estudiante a consultar
+     * @return historial de prestamos del estudiante
+     * @throws SQLException si falla la consulta
+     */
+    public List<Prestamo> historialDe(int idEstudiante) throws SQLException {
+        return prestamoDAO.listarPorEstudiante(idEstudiante);
+    }
+
+    /**
+     * Registra un prestamo (metodo synchronized del servicio).
+     *
+     * @param idEstudiante estudiante que pide el libro
+     * @param idLibro      libro solicitado
+     * @return el prestamo registrado
+     * @throws SQLException          si falla la base de datos
+     * @throws IllegalStateException si no hay stock o el prestamo no esta permitido
+     */
+    public Prestamo registrarPrestamo(int idEstudiante, int idLibro) throws SQLException {
+        return servicioPrestamos.registrarPrestamo(idEstudiante, idLibro);
+    }
+
+    /**
+     * Registra una devolucion (metodo synchronized del servicio).
+     *
+     * @param idPrestamo prestamo a cerrar
+     * @return el prestamo cerrado, con su atraso si lo hubo
+     * @throws SQLException          si falla la base de datos
+     * @throws IllegalStateException si el prestamo no existe o ya estaba devuelto
+     */
+    public Prestamo registrarDevolucion(int idPrestamo) throws SQLException {
+        return servicioPrestamos.registrarDevolucion(idPrestamo);
     }
 }

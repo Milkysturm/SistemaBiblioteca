@@ -7,6 +7,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +23,7 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
     /** Consulta base: los JOIN traen el nombre del estudiante y el titulo del libro. */
     private static final String SELECT_BASE =
             "SELECT p.id, p.id_estudiante, p.id_libro, p.fecha_prestamo, p.fecha_devolucion, p.devuelto, "
+            + "p.fecha_entrega, "
             + "e.nombre AS nombre_estudiante, l.titulo AS titulo_libro "
             + "FROM prestamos p "
             + "JOIN estudiantes e ON p.id_estudiante = e.id "
@@ -28,8 +31,8 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
 
     @Override
     public boolean insertar(Prestamo prestamo) throws SQLException {
-        String sql = "INSERT INTO prestamos (id_estudiante, id_libro, fecha_prestamo, fecha_devolucion, devuelto) "
-                + "VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO prestamos (id_estudiante, id_libro, fecha_prestamo, fecha_devolucion, "
+                + "devuelto, fecha_entrega) VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = getConexion().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             llenarParametros(ps, prestamo);
             int filas = ps.executeUpdate();
@@ -71,16 +74,19 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
     }
 
     /**
-     * Marca un prestamo como devuelto. Solo afecta prestamos que no estaban devueltos.
+     * Marca un prestamo como devuelto y guarda el dia de entrega, que deja
+     * constancia de si hubo atraso. Solo afecta prestamos que no estaban devueltos.
      *
      * @param idPrestamo prestamo a cerrar
+     * @param entrega    dia en que se devolvio el libro
      * @return true si se marco; false si no existe o ya estaba devuelto
      * @throws SQLException si falla la actualizacion
      */
-    public boolean marcarDevuelto(int idPrestamo) throws SQLException {
-        String sql = "UPDATE prestamos SET devuelto = TRUE WHERE id = ? AND devuelto = FALSE";
+    public boolean marcarDevuelto(int idPrestamo, LocalDate entrega) throws SQLException {
+        String sql = "UPDATE prestamos SET devuelto = TRUE, fecha_entrega = ? WHERE id = ? AND devuelto = FALSE";
         try (PreparedStatement ps = getConexion().prepareStatement(sql)) {
-            ps.setInt(1, idPrestamo);
+            ps.setDate(1, Date.valueOf(entrega));
+            ps.setInt(2, idPrestamo);
             return ps.executeUpdate() > 0;
         }
     }
@@ -103,13 +109,30 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
         return contar("SELECT COUNT(*) FROM prestamos WHERE id_estudiante = ?", idEstudiante);
     }
 
+    /**
+     * @param idEstudiante estudiante a consultar
+     * @param idLibro      libro a consultar
+     * @return true si el estudiante tiene ese libro prestado y aun no lo devuelve
+     * @throws SQLException si falla la consulta
+     */
+    public boolean tienePrestamoActivo(int idEstudiante, int idLibro) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM prestamos WHERE id_estudiante = ? AND id_libro = ? AND devuelto = FALSE";
+        try (PreparedStatement ps = getConexion().prepareStatement(sql)) {
+            ps.setInt(1, idEstudiante);
+            ps.setInt(2, idLibro);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+    }
+
     @Override
     public boolean actualizar(Prestamo prestamo) throws SQLException {
         String sql = "UPDATE prestamos SET id_estudiante = ?, id_libro = ?, fecha_prestamo = ?, "
-                + "fecha_devolucion = ?, devuelto = ? WHERE id = ?";
+                + "fecha_devolucion = ?, devuelto = ?, fecha_entrega = ? WHERE id = ?";
         try (PreparedStatement ps = getConexion().prepareStatement(sql)) {
             llenarParametros(ps, prestamo);
-            ps.setInt(6, prestamo.getId());
+            ps.setInt(7, prestamo.getId());
             return ps.executeUpdate() > 0;
         }
     }
@@ -164,7 +187,7 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
     }
 
     /**
-     * Copia los datos del prestamo en los cinco primeros parametros de la sentencia.
+     * Copia los datos del prestamo en los seis primeros parametros de la sentencia.
      *
      * @param ps       sentencia de INSERT o UPDATE
      * @param prestamo prestamo con los datos
@@ -176,6 +199,11 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
         ps.setDate(3, Date.valueOf(prestamo.getFechaPrestamo()));
         ps.setDate(4, Date.valueOf(prestamo.getFechaDevolucion()));
         ps.setBoolean(5, prestamo.isDevuelto());
+        if (prestamo.getFechaEntrega() != null) {
+            ps.setDate(6, Date.valueOf(prestamo.getFechaEntrega()));
+        } else {
+            ps.setNull(6, Types.DATE);
+        }
     }
 
     /**
@@ -193,6 +221,8 @@ public class PrestamoDAO extends BaseDAO implements CrudDAO<Prestamo> {
                 rs.getDate("fecha_prestamo").toLocalDate(),
                 rs.getDate("fecha_devolucion").toLocalDate(),
                 rs.getBoolean("devuelto"));
+        Date entrega = rs.getDate("fecha_entrega");   // NULL mientras no se devuelva
+        prestamo.setFechaEntrega(entrega != null ? entrega.toLocalDate() : null);
         prestamo.setNombreEstudiante(rs.getString("nombre_estudiante"));
         prestamo.setTituloLibro(rs.getString("titulo_libro"));
         return prestamo;
