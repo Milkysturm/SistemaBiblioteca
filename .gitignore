@@ -37,3 +37,5 @@ build/
 
 ### Mac OS ###
 .DS_Store
+### Datos de conexion (la contrasena no se sube) ###
+src/main/resources/db.properties

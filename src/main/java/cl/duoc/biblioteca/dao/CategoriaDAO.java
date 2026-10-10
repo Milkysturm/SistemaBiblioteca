@@ -2,22 +2,28 @@ package cl.duoc.biblioteca.dao;
 
 import cl.duoc.biblioteca.modelo.Categoria;
 
-import java.sql.*;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Acceso a datos de la tabla categorias. */
+/**
+ * Acceso a la tabla categorias.
+ *
+ * @author Olga Rivas
+ * @version 1.0
+ */
 public class CategoriaDAO extends BaseDAO implements CrudDAO<Categoria> {
 
     @Override
-    public boolean insertar(Categoria c) throws SQLException {
+    public boolean insertar(Categoria categoria) throws SQLException {
         String sql = "INSERT INTO categorias (nombre) VALUES (?)";
         try (PreparedStatement ps = getConexion().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, c.getNombre());
+            ps.setString(1, categoria.getNombre());
             int filas = ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                if (keys.next()) c.setId(keys.getInt(1));   // guardamos el id que asignó MySQL
-            }
+            categoria.setId(idGenerado(ps));
             return filas > 0;
         }
     }
@@ -39,17 +45,19 @@ public class CategoriaDAO extends BaseDAO implements CrudDAO<Categoria> {
         List<Categoria> lista = new ArrayList<>();
         try (PreparedStatement ps = getConexion().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) lista.add(mapear(rs));
+            while (rs.next()) {
+                lista.add(mapear(rs));
+            }
         }
         return lista;
     }
 
     @Override
-    public boolean actualizar(Categoria c) throws SQLException {
+    public boolean actualizar(Categoria categoria) throws SQLException {
         String sql = "UPDATE categorias SET nombre = ? WHERE id = ?";
         try (PreparedStatement ps = getConexion().prepareStatement(sql)) {
-            ps.setString(1, c.getNombre());
-            ps.setInt(2, c.getId());
+            ps.setString(1, categoria.getNombre());
+            ps.setInt(2, categoria.getId());
             return ps.executeUpdate() > 0;
         }
     }
@@ -63,7 +71,13 @@ public class CategoriaDAO extends BaseDAO implements CrudDAO<Categoria> {
         }
     }
 
-    /** Convierte la fila actual del ResultSet en un objeto Categoria. */
+    /**
+     * Convierte la fila actual en una Categoria.
+     *
+     * @param rs resultado posicionado en una fila
+     * @return la categoria leida
+     * @throws SQLException si falla la lectura
+     */
     private Categoria mapear(ResultSet rs) throws SQLException {
         return new Categoria(rs.getInt("id"), rs.getString("nombre"));
     }

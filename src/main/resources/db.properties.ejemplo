@@ -1,0 +1,5 @@
+# Copia este archivo como db.properties (en esta misma carpeta) y completa tus datos.
+# db.properties esta en el .gitignore: la contrasena no se sube al repositorio.
+url=jdbc:mysql://localhost:3306/biblioteca?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago&characterEncoding=UTF-8
+usuario=root
+clave=la_contrasena_de_tu_MySQL
